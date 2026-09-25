@@ -36,11 +36,11 @@
 #               2 = UNABLE TO COMPLETE (checks could not be evaluated)
 #
 #  Optional environment overrides (never required):
-#    FORTICNAPP_APP_ID=<appId>            check this SP instead of discovering
-#    FORTICNAPP_SUBSCRIPTIONS=<id,id>     limit to these subscriptions
-#    FORTICNAPP_SKIP_AGENTLESS=1          skip agentless provider checks
-#    FORTICNAPP_EXPIRY_DAYS=30            credential-expiry warning window
-#    NO_COLOR=1                           plain output
+#    AZ_APP_ID=<appId>            check this SP instead of discovering
+#    AZ_SUBSCRIPTIONS=<id,id>     limit to these subscriptions
+#    AZ_SKIP_AGENTLESS=1          skip agentless provider checks
+#    AZ_EXPIRY_DAYS=30            credential-expiry warning window
+#    NO_COLOR=1                   plain output
 # =============================================================================
 
 set -uo pipefail
@@ -62,8 +62,8 @@ readonly PROVIDERS_AGENTLESS=(Microsoft.Compute Microsoft.Network Microsoft.App 
 
 readonly DIAG_SETTINGS_MAX=5
 
-EXPIRY_WARN_DAYS="${FORTICNAPP_EXPIRY_DAYS:-30}"
-CHECK_AGENTLESS=1; [[ "${FORTICNAPP_SKIP_AGENTLESS:-0}" == "1" ]] && CHECK_AGENTLESS=0
+EXPIRY_WARN_DAYS="${AZ_EXPIRY_DAYS:-30}"
+CHECK_AGENTLESS=1; [[ "${AZ_SKIP_AGENTLESS:-0}" == "1" ]] && CHECK_AGENTLESS=0
 
 # -----------------------------------------------------------------------------
 # State
@@ -166,8 +166,8 @@ discover_subscriptions() {
     SUBS_JSON=$(jq -c --arg t "$TENANT_ID" \
         '[ .[] | select(.tenantId==$t) | {id, name, state} ] | unique_by(.id) | sort_by(.name)' <<<"$all")
 
-    if [[ -n "${FORTICNAPP_SUBSCRIPTIONS:-}" ]]; then
-        SUBS_JSON=$(jq -c --arg ids "${FORTICNAPP_SUBSCRIPTIONS// /}" \
+    if [[ -n "${AZ_SUBSCRIPTIONS:-}" ]]; then
+        SUBS_JSON=$(jq -c --arg ids "${AZ_SUBSCRIPTIONS// /}" \
             '($ids | ascii_downcase | split(",")) as $w | [ .[] | select((.id|ascii_downcase) as $i | $w | index($i)) ]' <<<"$SUBS_JSON")
     fi
 
@@ -210,12 +210,12 @@ discover_principals() {
 
     # (b) FortiCNAPP / Lacework Service Principal(s)
     local sps='[]' kw found
-    if [[ -n "${FORTICNAPP_APP_ID:-}" ]]; then
-        if found=$(az ad sp show --id "$FORTICNAPP_APP_ID" -o json 2>/dev/null); then
+    if [[ -n "${AZ_APP_ID:-}" ]]; then
+        if found=$(az ad sp show --id "$AZ_APP_ID" -o json 2>/dev/null); then
             sps=$(jq -c '[.]' <<<"$found")
         else
-            record FAIL discovery "FortiCNAPP Service Principal" "FORTICNAPP_APP_ID=$FORTICNAPP_APP_ID not found."
-            missing "Service Principal $FORTICNAPP_APP_ID"
+            record FAIL discovery "FortiCNAPP Service Principal" "AZ_APP_ID=$AZ_APP_ID not found."
+            missing "Service Principal $AZ_APP_ID"
         fi
     else
         for kw in "${SP_KEYWORDS[@]}"; do
