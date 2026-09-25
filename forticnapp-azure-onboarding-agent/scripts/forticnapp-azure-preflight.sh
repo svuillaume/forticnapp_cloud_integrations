@@ -119,6 +119,30 @@ graph_get_all() {
 
 usage() { sed -n '2,50p' "$0" | sed 's/^#  \{0,1\}//'; }
 
+# Portable "run this, but kill it after N seconds" — macOS has no `timeout` binary by default
+# (only `gtimeout` from brew's coreutils), so fall back to a background job + `wait` with our own
+# watchdog when neither is present, instead of silently running unbounded.
+run_with_timeout() {  # seconds cmd...
+    local secs="$1"; shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$secs" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "$secs" "$@"
+    else
+        "$@" &
+        local pid=$! waited=0
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 1; waited=$((waited + 1))
+            if [[ "$waited" -ge "$secs" ]]; then
+                kill -9 "$pid" 2>/dev/null
+                wait "$pid" 2>/dev/null
+                return 124
+            fi
+        done
+        wait "$pid"
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # 1. Tooling & session
 # -----------------------------------------------------------------------------
@@ -235,12 +259,22 @@ discover_principals() {
         if [[ -n "${FORTICNAPP_SUBSCRIPTIONS:-}" ]]; then
             local m subn i j sp_id sub_id assignments keep_ids=() before_n after_n keep_json
             m=$(jq 'length' <<<"$sps"); subn=$(jq 'length' <<<"$SUBS_JSON")
+            [[ "$m" -gt 0 ]] && echo "  ...checking $m candidate SP(s) against $subn scoped subscription(s) for a role assignment" >&2
             for ((i = 0; i < m; i++)); do
                 sp_id=$(jq -r ".[$i].id" <<<"$sps")
+                sp_name=$(jq -r ".[$i].displayName" <<<"$sps")
                 for ((j = 0; j < subn; j++)); do
                     sub_id=$(jq -r ".[$j].id" <<<"$SUBS_JSON")
-                    if assignments=$(list_role_assignments "$sp_id" "/subscriptions/$sub_id") && \
-                       [[ "$(jq 'length' <<<"$assignments")" -gt 0 ]]; then
+                    echo "      - $sp_name vs $sub_id ..." >&2
+                    # Direct/inherited role only (no --include-groups): that call can hang or take
+                    # a very long time expanding group membership on the Graph side, and all we
+                    # need here is "does this SP itself hold any role on this subscription". Bounded
+                    # by run_with_timeout so a stuck az/Graph call can't hang the whole script.
+                    if assignments=$(run_with_timeout "${AZ_CALL_TIMEOUT:-20}" az role assignment list \
+                            --assignee-object-id "$sp_id" --scope "/subscriptions/$sub_id" \
+                            --include-inherited --fill-principal-name false -o json 2>/dev/null) && \
+                       [[ "$(jq 'length' <<<"$assignments" 2>/dev/null)" -gt 0 ]]; then
+                        echo "        -> role found, keeping" >&2
                         keep_ids+=("$sp_id")
                         break
                     fi
