@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FortiCNAPP Cloud Integration</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23da291c%22/%3E%3C/svg%3E">
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --ink:#1d2330; --muted:#667085; --line:#e3e6eb;
+  --accent:#da291c; --accent-ink:#fff; --user:#1d2330; --user-ink:#fff;
+  --ok:#157f3b; --warn:#b26a00; --fail:#c0261a; --info:#1f6fb2; --code:#f1f3f6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --panel:#171b23; --ink:#e6e8ec; --muted:#98a2b3; --line:#262c38;
+    --user:#2a3140; --user-ink:#e6e8ec; --code:#1f2530;
+    --ok:#4cc27a; --warn:#f0a93a; --fail:#ff6b5e; --info:#6fb1ff;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:3px solid var(--accent);flex-wrap:wrap}
+#logo-img{height:22px;width:auto;margin-left:4px}
+header h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px;flex:1 1 auto;min-width:200px;display:flex;align-items:center;gap:8px}
+header h1 span{color:var(--accent)}
+.brand-logo{height:22px;width:auto}
+select,button,textarea{font:inherit;color:inherit}
+select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;max-width:260px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--fail)} .dot.warn{background:var(--warn)}
+main{flex:1;display:grid;grid-template-columns:280px minmax(0,1fr);min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:14px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 6px}
+.btn{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;margin-bottom:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px}
+.card .row{display:flex;justify-content:space-between;gap:8px}
+.card .row code{overflow-wrap:anywhere;text-align:right}
+.status-PASS{color:var(--ok);font-weight:650} .status-FAIL{color:var(--fail);font-weight:650}
+.status-UNABLE{color:var(--warn);font-weight:650}
+#chat{display:flex;flex-direction:column;min-height:0;min-width:0}
+#log{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:min(860px,100%);width:fit-content;padding:10px 14px;border-radius:12px;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--user);color:var(--user-ink);border-bottom-right-radius:4px;white-space:pre-wrap}
+.msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.bot p:first-child{margin-top:0} .msg.bot p:last-child{margin-bottom:0}
+.msg.sys{align-self:center;color:var(--muted);font-size:12px;background:transparent}
+.msg.err{align-self:flex-start;border:1px solid var(--fail);color:var(--fail);background:var(--panel)}
+pre{background:var(--code);padding:10px;border-radius:6px;overflow:auto;font-size:12.5px}
+code{background:var(--code);padding:1px 4px;border-radius:4px;font-size:12.5px}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;font-size:13px} td,th{border:1px solid var(--line);padding:4px 8px;text-align:left}
+details.tool{align-self:flex-start;max-width:860px;width:100%;border:1px dashed var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;color:var(--muted)}
+details.tool summary{cursor:pointer}
+details.tool pre{max-height:280px}
+.confirm{align-self:flex-start;max-width:860px;width:100%;border:2px solid var(--accent);border-radius:10px;padding:12px;background:var(--panel)}
+.confirm h3{margin:0 0 6px;font-size:14px}
+.confirm .actions{display:flex;gap:8px;margin-top:8px}
+.confirm button{border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--line);background:transparent}
+.confirm button.go{background:var(--accent);color:#fff;border-color:var(--accent)}
+.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel)}
+textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);min-height:46px;max-height:200px}
+#send{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:0 18px;cursor:pointer;font-weight:600}
+#send:disabled{opacity:.5;cursor:wait}
+.typing{align-self:flex-start;color:var(--muted);font-size:13px}
+.typing::after{content:"";display:inline-block;width:1.2em;animation:dots 1.2s steps(4) infinite;overflow:hidden;vertical-align:bottom}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+input[type=file]{display:none}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal{background:var(--panel);border-radius:12px;padding:18px 20px;max-width:440px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.modal h3{margin:0 0 12px;font-size:16px}
+.modal fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px}
+.modal legend{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:0 4px}
+.modal label{display:flex;align-items:center;gap:6px;font-size:13px;margin:4px 0;cursor:pointer}
+.modal label.field{display:block;cursor:default}
+.modal label.field span{display:block;margin-bottom:4px;color:var(--muted);font-size:12px}
+.modal input[type=text],.modal input:not([type=radio]):not([type=checkbox]){width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--bg);color:var(--ink);font:inherit}
+.modal .sub-input{margin-left:24px;margin-top:2px;width:calc(100% - 24px)}
+.modal .actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
+.modal .actions button{border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--line);background:transparent;color:inherit}
+.modal .actions button.go{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modal .hidden{display:none}
+.modal-overlay.hidden{display:none}
+@media (max-width:820px){
+  header{gap:6px;padding:8px 12px}
+  header h1{min-width:0;flex-basis:100%}
+  .pill{font-size:11px;padding:2px 8px}
+  main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  aside{border-right:0;border-bottom:1px solid var(--line);max-height:30vh;padding:10px 12px;gap:8px}
+  #log{padding:12px}
+  .composer{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><img src="/static/forticnapp-logo.png" alt="FortiCNAPP" class="brand-logo"> Cloud Integration</h1>
+  <label class="pill" title="LLM model served by Bifrost">Model
+    <select id="model"><option>loading…</option></select>
+  </label>
+  <span class="pill" id="llmPill"><span class="dot"></span>…</span>
+  <span class="pill" id="lwPill"><span class="dot"></span>FortiCNAPP API</span>
+  <span class="pill" id="mcpPill"><span class="dot"></span>MCP</span>
+  <img src="/static/fortinet-logo.svg" alt="Fortinet" id="logo-img">
+</header>
+
+<main>
+  <aside>
+    <section>
+      <h2>Guided steps</h2>
+      <button class="btn primary" id="startBtn">▶ Start onboarding</button>
+      <button class="btn" data-prompt="List the existing Azure integrations (AzureCfg and AzureAlSeq) in FortiCNAPP and their health.">List Azure integrations</button>
+      <button class="btn" data-prompt="Analyze my uploaded preflight report. Can I integrate this tenant? What must be fixed first?">Analyze preflight report</button>
+    </section>
+    <section>
+      <h2>Azure preflight</h2>
+      <a class="btn" href="/download/preflight.sh" target="_blank" rel="noopener">⬇ Download preflight script</a>
+      <button class="btn" id="uploadBtn">⬆ Upload preflight report (.json)</button>
+      <input type="file" id="file" accept=".json,application/json">
+      <div class="card" id="pfCard"><span style="color:var(--muted)">No report uploaded. Run the script in Azure Cloud Shell, then upload the JSON.</span></div>
+    </section>
+    <section>
+      <h2>Session</h2>
+      <button class="btn" id="resetBtn">↺ New conversation</button>
+    </section>
+  </aside>
+
+  <section id="chat">
+    <div id="log">
+      <div class="msg bot">
+        <p><strong>Hi, I'm the FortiCNAPP Azure integration assistant.</strong></p>
+        <p>I'll check whether your Azure tenant can be integrated, help you create the app registration and service principal, and then create the Cloud Account in FortiCNAPP. Nothing is created without your confirmation.</p>
+        <p>Click <em>Start onboarding</em> or ask me a question.</p>
+      </div>
+    </div>
+    <div class="composer">
+      <textarea id="input" rows="1" placeholder="Ask about your Azure integration… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button id="send">Send</button>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay hidden" id="scopeOverlay">
+  <div class="modal">
+    <h3>Start onboarding</h3>
+    <form id="scopeForm">
+      <label class="field"><span>FortiCNAPP account URL</span>
+        <input type="text" id="s_account" placeholder="yourtenant.lacework.net" required>
+      </label>
+
+      <fieldset>
+        <legend>Scope</legend>
+        <label><input type="radio" name="s_scope" value="tenant" checked> Whole tenant</label>
+        <label><input type="radio" name="s_scope" value="mgmt"> Management group</label>
+        <input type="text" id="s_mgmt_id" class="sub-input hidden" placeholder="management group ID">
+        <label><input type="radio" name="s_scope" value="subs"> Specific subscriptions</label>
+        <input type="text" id="s_subs_ids" class="sub-input hidden" placeholder="sub-id-1, sub-id-2, ...">
+      </fieldset>
+
+      <fieldset>
+        <legend>Integrations</legend>
+        <label><input type="checkbox" id="s_int_cfg" checked disabled> Configuration (CSPM) — always included</label>
+        <label><input type="checkbox" id="s_int_al" checked> Activity Log</label>
+        <label><input type="checkbox" id="s_int_ag"> Agentless workload scanning</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Deployment path</legend>
+        <label><input type="radio" name="s_path" value="terraform" checked> Terraform automated</label>
+        <label><input type="radio" name="s_path" value="cli"> Guided CLI + API</label>
+      </fieldset>
+
+      <fieldset id="s_tfFields">
+        <legend>Terraform options (Activity Log / Agentless only)</legend>
+        <label class="field"><span>Region</span>
+          <input type="text" id="s_region" value="westus2">
+        </label>
+        <label class="field"><span>Resource naming prefix</span>
+          <input type="text" id="s_prefix" value="lacework">
+        </label>
+      </fieldset>
+
+      <div class="actions">
+        <button type="button" id="scopeCancel">Cancel</button>
+        <button type="submit" class="go">Start</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = $("#log"), input = $("#input"), sendBtn = $("#send"), modelSel = $("#model");
+let sessionId = null, busy = false;
+
+const md = t => DOMPurify.sanitize(marked.parse(t || ""));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function scroll(){ log.scrollTop = log.scrollHeight; }
+function add(el){ log.appendChild(el); scroll(); return el; }
+function bubble(cls, html){ const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html; return add(d); }
+function setPill(id, state, text){ const p = $(id); p.querySelector(".dot").className = "dot " + state; p.lastChild.textContent = text; p.title = text; }
+
+async function api(path, body){
+  const r = await fetch(path, {method: body ? "POST" : "GET",
+    headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || ("HTTP " + r.status));
+  return data;
+}
+
+async function init(){
+  try {
+    const cfg = await api("/api/config");
+    setPill("#lwPill", cfg.forticnapp_configured ? "ok" : "bad",
+      cfg.forticnapp_configured ? "FortiCNAPP: " + cfg.forticnapp_account : "FortiCNAPP API not configured");
+    const nt = (cfg.mcp_tools || []).length, errs = Object.keys(cfg.mcp_errors || {});
+    setPill("#mcpPill", errs.length ? "bad" : (nt ? "ok" : "warn"),
+      errs.length ? "MCP error: " + errs.join(", ") : `MCP · ${(cfg.mcp_servers || []).join(", ")} · ${nt} tools`);
+    const m = await api("/api/models");
+    modelSel.innerHTML = m.models.map(x => `<option ${x === cfg.default_model ? "selected" : ""}>${esc(x)}</option>`).join("");
+    const saved = (() => { try { return localStorage.getItem("fcnapp.model"); } catch { return null; } })();
+    if (saved && m.models.includes(saved)) modelSel.value = saved;
+    const backendLabel = {bifrost: "Bifrost", llamacpp: "llama.cpp", vllm: "vLLM"}[cfg.backend] || cfg.backend;
+    setPill("#llmPill", m.source === "fallback" ? "warn" : "ok",
+      m.source === "fallback" ? `${backendLabel} · model list unavailable, using default` : `${backendLabel} · ${m.models.length} models`);
+  } catch (e) {
+    setPill("#llmPill", "bad", "Backend error: " + e.message);
+  }
+  sessionId = (await api("/api/session", {})).session_id;
+}
+modelSel.addEventListener("change", () => { try { localStorage.setItem("fcnapp.model", modelSel.value); } catch {} });
+
+function renderTurn(res){
+  for (const ev of res.events || []) {
+    if (ev.type !== "tool") continue;
+    const d = document.createElement("details"); d.className = "tool";
+    const ok = !(ev.result && ev.result.error);
+    d.innerHTML = `<summary>${ok ? "🔧" : "⚠️"} <code>${esc(ev.name)}</code> ${esc(JSON.stringify(ev.args))}</summary>
+      <pre>${esc(JSON.stringify(ev.result, null, 2))}</pre>`;
+    add(d);
+  }
+  if (res.reply) bubble("bot", md(res.reply));
+  for (const a of res.pending || []) renderConfirm(a);
+}
+
+function renderConfirm(a){
+  if (document.getElementById("act-" + a.id)) return;
+  const c = document.createElement("div"); c.className = "confirm"; c.id = "act-" + a.id;
+  const pv = a.preview || {};
+  c.innerHTML = `<h3>Confirm action: <code>${esc(a.tool)}</code></h3>
+    ${pv.type ? `<div>Type <code>${esc(pv.type)}</code> · Name <code>${esc(pv.name)}</code></div>` : ""}
+    <pre>${esc(JSON.stringify(pv, null, 2))}</pre>
+    ${a.args && a.args.secret_ref ? `<div style="color:var(--muted);font-size:12px">The client secret is resolved by the MCP server from <code>${esc(a.args.secret_ref)}</code> and is never shown to the model.</div>` : ""}
+    <div class="actions"><button class="go">Confirm &amp; create</button><button class="no">Cancel</button></div>`;
+  add(c);
+  c.querySelector(".go").onclick = () => decide(a.id, "confirm", c);
+  c.querySelector(".no").onclick = () => decide(a.id, "cancel", c);
+}
+
+async function decide(id, decision, card){
+  if (busy) return;
+  card.querySelectorAll("button").forEach(b => b.disabled = true);
+  card.querySelector(".actions").innerHTML = `<em>${decision === "confirm" ? "Creating…" : "Cancelled"}</em>`;
+  await withBusy(async () => {
+    const res = await api(`/api/actions/${id}`, {session_id: sessionId, model: modelSel.value, decision});
+    card.querySelector(".actions").innerHTML = `<strong>${esc(res.action.status.toUpperCase())}</strong>`;
+    renderTurn(res);
+  });
+}
+
+async function withBusy(fn){
+  busy = true; sendBtn.disabled = true;
+  const t = add(Object.assign(document.createElement("div"), {className: "typing", textContent: "Working"}));
+  try { await fn(); }
+  catch (e) { bubble("err", "⚠️ " + esc(e.message)); }
+  finally { t.remove(); busy = false; sendBtn.disabled = false; input.focus(); }
+}
+
+async function send(text){
+  text = (text ?? input.value).trim();
+  if (!text || busy) return;
+  input.value = ""; autosize();
+  bubble("user", esc(text));
+  await withBusy(async () => {
+    const res = await api("/api/chat", {session_id: sessionId, model: modelSel.value, message: text});
+    sessionId = res.session_id;
+    renderTurn(res);
+  });
+}
+
+function autosize(){ input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 200) + "px"; }
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+sendBtn.onclick = () => send();
+document.querySelectorAll("[data-prompt]").forEach(b => b.onclick = () => send(b.dataset.prompt));
+
+// Cloud Shell copy/paste or download sometimes appends trailing shell text after the JSON
+// (e.g. the next commands the user typed). Parse just the first balanced top-level object.
+function parseLeadingJSON(text) {
+  const start = text.indexOf("{");
+  if (start < 0) throw new Error("no JSON object found in file");
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}") { depth--; if (depth === 0) return JSON.parse(text.slice(start, i + 1)); }
+  }
+  throw new Error("truncated JSON object (unbalanced braces)");
+}
+
+$("#uploadBtn").onclick = () => $("#file").click();
+$("#file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const report = parseLeadingJSON(await f.text());
+    const r = await api("/api/preflight", {session_id: sessionId, report});
+    const st = (r.status || "").split(" ")[0];
+    $("#pfCard").innerHTML = `<div class="row"><span>Status</span><span class="status-${esc(st)}">${esc(r.status)}</span></div>
+      <div class="row"><span>Tenant</span><code>${esc(r.tenant || "")}</code></div>
+      <div class="row"><span>Subscriptions</span><span>${r.subscriptions}</span></div>
+      <div class="row"><span>Blocking items</span><span>${r.missing}</span></div>`;
+    bubble("sys", `Preflight report uploaded (${esc(f.name)})`);
+    send("I uploaded my preflight report. Analyze it and tell me if I can integrate, and what to fix first.");
+  } catch (err) { bubble("err", "⚠️ Upload failed: " + esc(err.message)); }
+  e.target.value = "";
+};
+
+$("#resetBtn").onclick = async () => {
+  sessionId = (await api("/api/session", {})).session_id;
+  log.innerHTML = ""; bubble("sys", "New conversation started.");
+  $("#pfCard").innerHTML = '<span style="color:var(--muted)">No report uploaded.</span>';
+};
+
+// Guided Phase 0 scoping form: collects the same answers SKILL.md's Phase 0 asks one-by-one,
+// then sends them as a single structured message so the model doesn't have to spend a whole
+// turn (and the user a whole prompt) on each question.
+const scopeOverlay = $("#scopeOverlay"), scopeForm = $("#scopeForm");
+
+function openScopeForm(){ scopeOverlay.classList.remove("hidden"); $("#s_account").focus(); }
+function closeScopeForm(){ scopeOverlay.classList.add("hidden"); }
+
+$("#startBtn").onclick = openScopeForm;
+$("#scopeCancel").onclick = closeScopeForm;
+scopeOverlay.addEventListener("click", e => { if (e.target === scopeOverlay) closeScopeForm(); });
+
+function toggleSubInputs(){
+  const scope = scopeForm.querySelector('input[name="s_scope"]:checked').value;
+  $("#s_mgmt_id").classList.toggle("hidden", scope !== "mgmt");
+  $("#s_subs_ids").classList.toggle("hidden", scope !== "subs");
+}
+function toggleTfFields(){
+  const path = scopeForm.querySelector('input[name="s_path"]:checked').value;
+  $("#s_tfFields").classList.toggle("hidden", path !== "terraform");
+}
+scopeForm.querySelectorAll('input[name="s_scope"]').forEach(r => r.onchange = toggleSubInputs);
+scopeForm.querySelectorAll('input[name="s_path"]').forEach(r => r.onchange = toggleTfFields);
+toggleSubInputs(); toggleTfFields();
+
+scopeForm.addEventListener("submit", e => {
+  e.preventDefault();
+  const scope = scopeForm.querySelector('input[name="s_scope"]:checked').value;
+  const path = scopeForm.querySelector('input[name="s_path"]:checked').value;
+  const integrations = [
+    "Configuration (CSPM)",
+    $("#s_int_al").checked ? "Activity Log" : null,
+    $("#s_int_ag").checked ? "Agentless workload scanning" : null,
+  ].filter(Boolean);
+
+  const lines = [
+    "Start a new FortiCNAPP Azure integration with this scope (from the guided form, do not re-ask these):",
+    `- FortiCNAPP account URL: ${$("#s_account").value.trim() || "(not provided)"}`,
+    `- Scope: ${scope === "tenant" ? "whole tenant" : scope === "mgmt" ? `management group ${$("#s_mgmt_id").value.trim()}` : `subscriptions ${$("#s_subs_ids").value.trim()}`}`,
+    `- Integrations: ${integrations.join(", ")}`,
+    `- Deployment path: ${path === "terraform" ? "A. Terraform automated" : "B. Guided CLI + API"}`,
+  ];
+  if (path === "terraform" && (integrations.includes("Activity Log") || integrations.includes("Agentless workload scanning"))) {
+    lines.push(`- Region: ${$("#s_region").value.trim() || "westus2"}`);
+    lines.push(`- Resource naming prefix: ${$("#s_prefix").value.trim() || "lacework"}`);
+  }
+  lines.push("Go straight to Phase 1 (preflight).");
+
+  closeScopeForm();
+  send(lines.join("\n"));
+});
+
+init();
+</script>
+</body>
+</html>

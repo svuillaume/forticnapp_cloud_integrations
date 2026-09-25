@@ -1,0 +1,218 @@
+{
+  "tool": "forticnapp-azure-preflight",
+  "version": "3.1.0",
+  "timestamp": "2026-09-25T14:11:32Z",
+  "status": "FAIL",
+  "tenant": "t1",
+  "consoleUser": "sam@contoso.com",
+  "subscriptions": [
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "name": "Dev",
+      "state": "Enabled"
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Prod",
+      "state": "Enabled"
+    }
+  ],
+  "principals": [
+    {
+      "objectId": "u-1",
+      "type": "User",
+      "name": "sam@contoso.com",
+      "appId": "",
+      "role": "Console user (deployer)"
+    },
+    {
+      "objectId": "sp-1",
+      "type": "ServicePrincipal",
+      "name": "lacework-azure-sp",
+      "appId": "app-1",
+      "role": "FortiCNAPP SP"
+    }
+  ],
+  "missing": [
+    "FortiCNAPP SP lacework-azure-sp: Entra ID Application Administrator",
+    "FortiCNAPP SP lacework-azure-sp: activate PIM role Privileged Role Administrator",
+    "FortiCNAPP SP lacework-azure-sp: Azure Owner on Dev (22222222-2222-2222-2222-222222222222)",
+    "Free diagnostic-setting slot on Dev"
+  ],
+  "checks": [
+    {
+      "status": "PASS",
+      "area": "tooling",
+      "check": "az CLI and jq installed",
+      "detail": "azure-cli 2.66.0"
+    },
+    {
+      "status": "PASS",
+      "area": "tooling",
+      "check": "Azure CLI signed in",
+      "detail": "Console identity: sam@contoso.com (user) | Tenant: t1"
+    },
+    {
+      "status": "PASS",
+      "area": "tooling",
+      "check": "Microsoft Graph token available",
+      "detail": ""
+    },
+    {
+      "status": "PASS",
+      "area": "discovery",
+      "check": "Subscriptions visible to console user",
+      "detail": "2 subscription(s) in tenant t1"
+    },
+    {
+      "status": "INFO",
+      "area": "discovery",
+      "check": "Other tenants",
+      "detail": "Subscriptions in 1 other tenant(s) are not checked. Run 'az login --tenant <id>' to check them."
+    },
+    {
+      "status": "INFO",
+      "area": "discovery",
+      "check": "Existing FortiCNAPP Service Principal",
+      "detail": "1 found - each will be evaluated."
+    },
+    {
+      "status": "INFO",
+      "area": "entra",
+      "check": "Active Entra ID roles",
+      "detail": "Global Administrator"
+    },
+    {
+      "status": "PASS",
+      "area": "entra",
+      "check": "Application Administrator",
+      "detail": "Satisfied by Global Administrator."
+    },
+    {
+      "status": "PASS",
+      "area": "entra",
+      "check": "Privileged Role Administrator",
+      "detail": "Satisfied by Global Administrator."
+    },
+    {
+      "status": "PASS",
+      "area": "rbac",
+      "check": "Owner on Dev",
+      "detail": "Granted at: /subscriptions/22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "status": "PASS",
+      "area": "rbac",
+      "check": "Owner on Prod",
+      "detail": "Granted at: /providers/Microsoft.Management/managementGroups/root"
+    },
+    {
+      "status": "INFO",
+      "area": "rbac",
+      "check": "Owner coverage",
+      "detail": "2 of 2 subscription(s)"
+    },
+    {
+      "status": "PASS",
+      "area": "principal",
+      "check": "Service Principal enabled",
+      "detail": ""
+    },
+    {
+      "status": "WARN",
+      "area": "principal",
+      "check": "Credentials",
+      "detail": "1 valid; earliest expires in 9 day(s)."
+    },
+    {
+      "status": "INFO",
+      "area": "entra",
+      "check": "Active Entra ID roles",
+      "detail": "none"
+    },
+    {
+      "status": "FAIL",
+      "area": "entra",
+      "check": "Application Administrator",
+      "detail": "Not assigned."
+    },
+    {
+      "status": "FAIL",
+      "area": "entra",
+      "check": "Privileged Role Administrator",
+      "detail": "PIM-eligible only - activate it before running the integration."
+    },
+    {
+      "status": "FAIL",
+      "area": "rbac",
+      "check": "Owner on Dev",
+      "detail": "Effective roles: Reader"
+    },
+    {
+      "status": "PASS",
+      "area": "rbac",
+      "check": "Owner on Prod",
+      "detail": "Granted at: /subscriptions/11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "status": "INFO",
+      "area": "rbac",
+      "check": "Owner coverage",
+      "detail": "1 of 2 subscription(s)"
+    },
+    {
+      "status": "PASS",
+      "area": "platform",
+      "check": "Subscription state",
+      "detail": "Enabled"
+    },
+    {
+      "status": "WARN",
+      "area": "platform",
+      "check": "Providers - Activity Log",
+      "detail": "Not registered: Microsoft.EventGrid(NotRegistered)"
+    },
+    {
+      "status": "WARN",
+      "area": "platform",
+      "check": "Providers - Agentless scanning",
+      "detail": "Not registered: Microsoft.Compute(NotFound) Microsoft.Network(NotFound) Microsoft.App(NotFound) Microsoft.KeyVault(NotFound) Microsoft.ManagedIdentity(NotFound)"
+    },
+    {
+      "status": "FAIL",
+      "area": "platform",
+      "check": "Activity Log diagnostic settings",
+      "detail": "5/5 used - no free slot for the FortiCNAPP Activity Log export."
+    },
+    {
+      "status": "PASS",
+      "area": "platform",
+      "check": "Subscription state",
+      "detail": "Enabled"
+    },
+    {
+      "status": "PASS",
+      "area": "platform",
+      "check": "Providers - Activity Log",
+      "detail": ""
+    },
+    {
+      "status": "WARN",
+      "area": "platform",
+      "check": "Providers - Agentless scanning",
+      "detail": "Not registered: Microsoft.Compute(NotFound) Microsoft.Network(NotFound) Microsoft.App(NotFound) Microsoft.KeyVault(NotFound) Microsoft.ManagedIdentity(NotFound)"
+    },
+    {
+      "status": "PASS",
+      "area": "platform",
+      "check": "Activity Log diagnostic settings",
+      "detail": "2/5 used"
+    },
+    {
+      "status": "INFO",
+      "area": "platform",
+      "check": "Existing FortiCNAPP/Lacework setting",
+      "detail": "lacework-activity - an integration may already exist for this subscription."
+    }
+  ]
+}

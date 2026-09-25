@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+a="$*"
+case "$a" in
+  "ad app create --display-name forticnapp-azure-lab -o json") echo '{"appId":"99999999-8888-7777-6666-555555555555","id":"app-obj-1","displayName":"forticnapp-azure-lab"}';;
+  "ad app credential reset --id 99999999-8888-7777-6666-555555555555 --append --display-name forticnapp --years 1 --query password -o tsv") echo 'real-azure-secret';;
+  "keyvault secret set --vault-name kv-lab --name forticnapp-azure-client-secret --file "*) prev=""; for x in "$@"; do [ "$prev" = "--file" ] && cp "$x" "${TMPDIR:-/tmp}/fake-kv-secret"; prev="$x"; done; echo '"https://kv-lab.vault.azure.net/secrets/forticnapp-azure-client-secret/abc"';;
+  "keyvault secret show --vault-name kv-lab --name forticnapp-azure-client-secret --query value -o tsv") cat "${TMPDIR:-/tmp}/fake-kv-secret";;
+  "account set"*) exit 0;;
+  "version -o json") echo '{"azure-cli":"2.66.0"}';;
+  "account show -o json") echo '{"tenantId":"t1","user":{"name":"sam@contoso.com","type":"user"}}';;
+  "account get-access-token"*) exit 0;;
+  "account list --all -o json") echo '[{"id":"11111111-1111-1111-1111-111111111111","name":"Prod","state":"Enabled","tenantId":"t1"},{"id":"22222222-2222-2222-2222-222222222222","name":"Dev","state":"Enabled","tenantId":"t1"},{"id":"33333333-3333-3333-3333-333333333333","name":"Other","state":"Enabled","tenantId":"t2"}]';;
+  "ad signed-in-user show -o json") echo '{"id":"u-1","userPrincipalName":"sam@contoso.com"}';;
+  *servicePrincipals?%24search=%22displayName:lacework*) echo '{"value":[{"id":"sp-1","appId":"app-1","displayName":"lacework-azure-sp"}]}';;
+  *servicePrincipals?%24search*) echo '{"value":[]}';;
+  *users/u-1/transitiveMemberOf*) echo '{"value":[{"roleTemplateId":"62e90394-69f5-4237-9190-012177145e10","displayName":"Global Administrator"}]}';;
+  *servicePrincipals/sp-1/transitiveMemberOf*) echo '{"value":[]}';;
+  *roleEligibilityScheduleInstances*sp-1*) echo '{"value":[{"roleDefinitionId":"e8611ab8-c189-46e8-94e1-60213ab1f814"}]}';;
+  rest*) echo '{"value":[]}';;
+  "ad sp show --id sp-1 -o json") echo '{"id":"sp-1","appId":"app-1","accountEnabled":true}';;
+  "ad app credential list --id app-1 -o json") echo '[{"endDateTime":"2026-10-05T00:00:00Z"}]';;
+  "ad app credential list --id app-1 --cert -o json") echo '[]';;
+  "ad app federated-credential list"*) echo '[]';;
+  "role assignment list --assignee-object-id u-1 --scope /subscriptions/1111"*) echo '[{"roleDefinitionName":"Owner","scope":"/providers/Microsoft.Management/managementGroups/root"}]';;
+  "role assignment list --assignee-object-id u-1"*) echo '[{"roleDefinitionName":"Owner","scope":"/subscriptions/22222222-2222-2222-2222-222222222222"}]';;
+  "role assignment list --assignee-object-id sp-1 --scope /subscriptions/1111"*) echo '[{"roleDefinitionName":"Owner","scope":"/subscriptions/11111111-1111-1111-1111-111111111111"}]';;
+  "role assignment list --assignee-object-id sp-1"*) echo '[{"roleDefinitionName":"Reader","scope":"/subscriptions/22222222-2222-2222-2222-222222222222"}]';;
+  "provider list --subscription 1111"*) echo '[{"n":"Microsoft.Insights","s":"Registered"},{"n":"Microsoft.Storage","s":"Registered"},{"n":"Microsoft.EventGrid","s":"Registered"}]';;
+  "provider list"*) echo '[{"n":"microsoft.insights","s":"Registered"},{"n":"Microsoft.Storage","s":"Registered"},{"n":"Microsoft.EventGrid","s":"NotRegistered"}]';;
+  "monitor diagnostic-settings subscription list --subscription 1111"*) echo '{"value":[{"name":"lacework-activity"},{"name":"a"}]}';;
+  "monitor diagnostic-settings"*) echo '[{"name":"a"},{"name":"b"},{"name":"c"},{"name":"d"},{"name":"e"}]';;
+  *) echo "UNMOCKED: $a" >&2; exit 1;;
+esac

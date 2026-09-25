@@ -1,0 +1,6 @@
+.env
+.lacework.toml
+.venv/
+__pycache__/
+*.pyc
+forticnapp-azure-preflight-*.json

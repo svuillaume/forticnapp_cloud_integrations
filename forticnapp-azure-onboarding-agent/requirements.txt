@@ -1,0 +1,4 @@
+fastapi>=0.115
+uvicorn>=0.30
+httpx>=0.27
+mcp>=1.27,<2  # 2.x renamed streamablehttp_client -> streamable_http_client (app/mcp_hub.py uses the 1.x name)

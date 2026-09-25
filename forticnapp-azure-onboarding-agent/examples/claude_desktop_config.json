@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "forticnapp": {
+      "command": "/ABS/PATH/forticnapp-azure-onboarding-agent/.venv/bin/python",
+      "args": ["-m", "mcp_server.forticnapp_mcp"],
+      "env": { "PYTHONPATH": "/ABS/PATH/forticnapp-azure-onboarding-agent" }
+    },
+    "azure": {
+      "command": "/ABS/PATH/forticnapp-azure-onboarding-agent/.venv/bin/python",
+      "args": ["-m", "mcp_server.azure_mcp"],
+      "env": { "PYTHONPATH": "/ABS/PATH/forticnapp-azure-onboarding-agent" }
+    }
+  }
+}
