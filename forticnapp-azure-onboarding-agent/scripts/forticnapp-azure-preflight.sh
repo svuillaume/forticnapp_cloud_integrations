@@ -252,11 +252,16 @@ discover_principals() {
         echo "  ...listing role assignments on $subn scoped subscription(s) to find Service Principals in scope" >&2
         for ((j = 0; j < subn; j++)); do
             sub_id=$(jq -r ".[$j].id" <<<"$SUBS_JSON")
+            # NO --include-inherited: inherited assignments come from management-group / tenant-root
+            # and pull in tenant-wide platform SPs that appear on every subscription (that's the
+            # "looking at the tenant" noise). A FortiCNAPP/Lacework integration assigns its role
+            # DIRECTLY at the subscription scope, so only direct sub-scoped assignments matter here.
             if raw=$(run_with_timeout "${AZ_CALL_TIMEOUT:-20}" az role assignment list \
-                    --scope "/subscriptions/$sub_id" --include-inherited \
+                    --scope "/subscriptions/$sub_id" \
                     --fill-principal-name false -o json 2>/dev/null); then
                 sp_ids=$(jq -nc --argjson a "$sp_ids" --argjson b "$raw" \
                     '$a + [ $b[] | select(.principalType=="ServicePrincipal") | .principalId ] | unique')
+                echo "      - $(jq 'length' <<<"$raw") assignment(s) at subscription scope on $sub_id" >&2
             else
                 echo "      - role assignment list on $sub_id timed out/failed, skipping" >&2
             fi
