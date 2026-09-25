@@ -263,19 +263,38 @@ discover_principals() {
         done
 
         local n; n=$(jq 'length' <<<"$sp_ids")
-        [[ "$n" -gt 0 ]] && echo "  ...resolving $n Service Principal(s) found on scoped subscription(s)" >&2
-        for ((j = 0; j < n; j++)); do
-            sp_id=$(jq -r ".[$j]" <<<"$sp_ids")
-            found=$(az ad sp show --id "$sp_id" -o json 2>/dev/null) || continue
-            kw_match=0
-            for kw in "${SP_KEYWORDS[@]}"; do
-                if jq -e --arg kw "$kw" '(.displayName // "") | ascii_downcase | contains($kw | ascii_downcase)' \
-                        <<<"$found" >/dev/null; then
-                    kw_match=1; break
+        if [[ "$n" -gt 0 ]]; then
+            echo "  ...resolving $n Service Principal(s) found on scoped subscription(s) via Graph (batched)" >&2
+            local sp_id_arr=() chunk_size=15 start end chunk_ids id ids_quoted joined filter_raw url resolved kw_ok
+            mapfile -t sp_id_arr < <(jq -r '.[]' <<<"$sp_ids")
+            for ((start = 0; start < n; start += chunk_size)); do
+                end=$((start + chunk_size)); [[ "$end" -gt "$n" ]] && end="$n"
+                chunk_ids=("${sp_id_arr[@]:$start:$((end - start))}")
+                ids_quoted=()
+                for id in "${chunk_ids[@]}"; do ids_quoted+=("'$id'"); done
+                joined=$(IFS=,; echo "${ids_quoted[*]}")
+                filter_raw="id in ($joined)"
+                url="$GRAPH/servicePrincipals?\$filter=$(jq -rn --arg f "$filter_raw" '$f|@uri')&\$select=id,appId,displayName&\$count=true"
+                # One Graph call resolves up to 15 SPs at once, instead of one az ad sp show per SP -
+                # both faster and each call is individually bounded by run_with_timeout.
+                if resolved=$(run_with_timeout "${AZ_CALL_TIMEOUT:-20}" az rest --method GET --url "$url" \
+                        --headers "ConsistencyLevel=eventual" -o json 2>/dev/null); then
+                    resolved=$(jq -c '.value // []' <<<"$resolved")
+                else
+                    echo "      - batched Graph lookup failed for ${#chunk_ids[@]} SP(s), resolving individually (bounded)" >&2
+                    resolved='[]'
+                    for id in "${chunk_ids[@]}"; do
+                        found=$(run_with_timeout 10 az ad sp show --id "$id" -o json 2>/dev/null) || continue
+                        resolved=$(jq -nc --argjson a "$resolved" --argjson b "[$found]" '$a + $b')
+                    done
                 fi
+                kw_ok=$(jq -c --arg kw_list "${SP_KEYWORDS[*]}" \
+                    '($kw_list | ascii_downcase | split(" ")) as $kws
+                     | [ .[] | select(((.displayName // "") | ascii_downcase) as $d | $kws | any(. as $k | $d | contains($k))) ]' \
+                    <<<"$resolved")
+                sps=$(jq -nc --argjson a "$sps" --argjson b "$kw_ok" '$a + $b | unique_by(.id)')
             done
-            [[ "$kw_match" -eq 1 ]] && sps=$(jq -nc --argjson a "$sps" --argjson b "[$found]" '$a + $b | unique_by(.id)')
-        done
+        fi
         record INFO discovery "Service Principal scoping" \
             "Scanned Service Principals with a role on the scoped subscription(s) only ($n candidate(s) checked), not the whole tenant."
     else
