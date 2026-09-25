@@ -241,6 +241,43 @@ discover_principals() {
             record FAIL discovery "FortiCNAPP Service Principal" "FORTICNAPP_APP_ID=$FORTICNAPP_APP_ID not found."
             missing "Service Principal $FORTICNAPP_APP_ID"
         fi
+    elif [[ -n "${FORTICNAPP_SUBSCRIPTIONS:-}" ]]; then
+        # Scoped run: never touch the tenant. Instead of a tenant-wide Graph search, list the role
+        # assignments that already exist on each scoped subscription, keep only the ServicePrincipal
+        # ones, and resolve just those - a handful of calls bounded by what's actually on this
+        # subscription, not by tenant size.
+        local subn j sub_id raw sp_ids sp_id found_kw kw_match
+        subn=$(jq 'length' <<<"$SUBS_JSON")
+        sp_ids='[]'
+        echo "  ...listing role assignments on $subn scoped subscription(s) to find Service Principals in scope" >&2
+        for ((j = 0; j < subn; j++)); do
+            sub_id=$(jq -r ".[$j].id" <<<"$SUBS_JSON")
+            if raw=$(run_with_timeout "${AZ_CALL_TIMEOUT:-20}" az role assignment list \
+                    --scope "/subscriptions/$sub_id" --include-inherited \
+                    --fill-principal-name false -o json 2>/dev/null); then
+                sp_ids=$(jq -nc --argjson a "$sp_ids" --argjson b "$raw" \
+                    '$a + [ $b[] | select(.principalType=="ServicePrincipal") | .principalId ] | unique')
+            else
+                echo "      - role assignment list on $sub_id timed out/failed, skipping" >&2
+            fi
+        done
+
+        local n; n=$(jq 'length' <<<"$sp_ids")
+        [[ "$n" -gt 0 ]] && echo "  ...resolving $n Service Principal(s) found on scoped subscription(s)" >&2
+        for ((j = 0; j < n; j++)); do
+            sp_id=$(jq -r ".[$j]" <<<"$sp_ids")
+            found=$(az ad sp show --id "$sp_id" -o json 2>/dev/null) || continue
+            kw_match=0
+            for kw in "${SP_KEYWORDS[@]}"; do
+                if jq -e --arg kw "$kw" '(.displayName // "") | ascii_downcase | contains($kw | ascii_downcase)' \
+                        <<<"$found" >/dev/null; then
+                    kw_match=1; break
+                fi
+            done
+            [[ "$kw_match" -eq 1 ]] && sps=$(jq -nc --argjson a "$sps" --argjson b "[$found]" '$a + $b | unique_by(.id)')
+        done
+        record INFO discovery "Service Principal scoping" \
+            "Scanned Service Principals with a role on the scoped subscription(s) only ($n candidate(s) checked), not the whole tenant."
     else
         for kw in "${SP_KEYWORDS[@]}"; do
             # $search matches any word in displayName; fall back to startswith if unsupported
@@ -249,46 +286,18 @@ discover_principals() {
                 --headers "ConsistencyLevel=eventual") || \
             found=$(az ad sp list --filter "startswith(displayName,'${kw}')" \
                 --query "[].{id:id,appId:appId,displayName:displayName}" -o json 2>/dev/null) || found='[]'
+            # Graph's $search does fuzzy/tokenized matching, not strict substring containment - on a
+            # large tenant it can return far more SPs than actually match (seen: 277 "hits" for one
+            # keyword). Re-check displayName actually contains the keyword before keeping anything.
+            local raw_n kept_n
+            raw_n=$(jq 'length' <<<"$found")
+            found=$(jq -c --arg kw "$kw" \
+                '[ .[] | select((.displayName // "") | ascii_downcase | contains($kw | ascii_downcase)) ]' \
+                <<<"$found")
+            kept_n=$(jq 'length' <<<"$found")
+            [[ "$raw_n" -ne "$kept_n" ]] && echo "  ...keyword '$kw': Graph returned $raw_n fuzzy match(es), $kept_n actually contain it - discarding the rest" >&2
             sps=$(jq -nc --argjson a "$sps" --argjson b "$found" '$a + $b | unique_by(.id)')
         done
-
-        # Scoped run (FORTICNAPP_SUBSCRIPTIONS set, no explicit FORTICNAPP_APP_ID): a tenant can have
-        # several FortiCNAPP/Lacework SPs (one per subscription/environment). Keyword search finds all
-        # of them tenant-wide, but only the one(s) actually holding a role on the scoped subscription(s)
-        # are relevant here - filter the rest out instead of evaluating every SP in the tenant.
-        if [[ -n "${FORTICNAPP_SUBSCRIPTIONS:-}" ]]; then
-            local m subn i j sp_id sub_id assignments keep_ids=() before_n after_n keep_json
-            m=$(jq 'length' <<<"$sps"); subn=$(jq 'length' <<<"$SUBS_JSON")
-            [[ "$m" -gt 0 ]] && echo "  ...checking $m candidate SP(s) against $subn scoped subscription(s) for a role assignment" >&2
-            for ((i = 0; i < m; i++)); do
-                sp_id=$(jq -r ".[$i].id" <<<"$sps")
-                sp_name=$(jq -r ".[$i].displayName" <<<"$sps")
-                for ((j = 0; j < subn; j++)); do
-                    sub_id=$(jq -r ".[$j].id" <<<"$SUBS_JSON")
-                    echo "      - $sp_name vs $sub_id ..." >&2
-                    # Direct/inherited role only (no --include-groups): that call can hang or take
-                    # a very long time expanding group membership on the Graph side, and all we
-                    # need here is "does this SP itself hold any role on this subscription". Bounded
-                    # by run_with_timeout so a stuck az/Graph call can't hang the whole script.
-                    if assignments=$(run_with_timeout "${AZ_CALL_TIMEOUT:-20}" az role assignment list \
-                            --assignee-object-id "$sp_id" --scope "/subscriptions/$sub_id" \
-                            --include-inherited --fill-principal-name false -o json 2>/dev/null) && \
-                       [[ "$(jq 'length' <<<"$assignments" 2>/dev/null)" -gt 0 ]]; then
-                        echo "        -> role found, keeping" >&2
-                        keep_ids+=("$sp_id")
-                        break
-                    fi
-                done
-            done
-            keep_json=$(printf '%s\n' "${keep_ids[@]+"${keep_ids[@]}"}" | jq -R 'select(length>0)' | jq -s .)
-            before_n="$m"
-            sps=$(jq -c --argjson keep "$keep_json" '[ .[] | select(.id as $i | $keep | index($i)) ]' <<<"$sps")
-            after_n=$(jq 'length' <<<"$sps")
-            if [[ "$before_n" -ne "$after_n" ]]; then
-                record INFO discovery "Service Principal scoping" \
-                    "$((before_n - after_n)) of $before_n discovered SP(s) have no Azure role on the scoped subscription(s) - excluded. Set FORTICNAPP_APP_ID to force one."
-            fi
-        fi
     fi
 
     local n; n=$(jq 'length' <<<"$sps")
