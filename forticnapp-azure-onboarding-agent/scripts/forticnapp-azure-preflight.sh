@@ -227,6 +227,34 @@ discover_principals() {
                 --query "[].{id:id,appId:appId,displayName:displayName}" -o json 2>/dev/null) || found='[]'
             sps=$(jq -nc --argjson a "$sps" --argjson b "$found" '$a + $b | unique_by(.id)')
         done
+
+        # Scoped run (FORTICNAPP_SUBSCRIPTIONS set, no explicit FORTICNAPP_APP_ID): a tenant can have
+        # several FortiCNAPP/Lacework SPs (one per subscription/environment). Keyword search finds all
+        # of them tenant-wide, but only the one(s) actually holding a role on the scoped subscription(s)
+        # are relevant here - filter the rest out instead of evaluating every SP in the tenant.
+        if [[ -n "${FORTICNAPP_SUBSCRIPTIONS:-}" ]]; then
+            local m subn i j sp_id sub_id assignments keep_ids=() before_n after_n keep_json
+            m=$(jq 'length' <<<"$sps"); subn=$(jq 'length' <<<"$SUBS_JSON")
+            for ((i = 0; i < m; i++)); do
+                sp_id=$(jq -r ".[$i].id" <<<"$sps")
+                for ((j = 0; j < subn; j++)); do
+                    sub_id=$(jq -r ".[$j].id" <<<"$SUBS_JSON")
+                    if assignments=$(list_role_assignments "$sp_id" "/subscriptions/$sub_id") && \
+                       [[ "$(jq 'length' <<<"$assignments")" -gt 0 ]]; then
+                        keep_ids+=("$sp_id")
+                        break
+                    fi
+                done
+            done
+            keep_json=$(printf '%s\n' "${keep_ids[@]+"${keep_ids[@]}"}" | jq -R 'select(length>0)' | jq -s .)
+            before_n="$m"
+            sps=$(jq -c --argjson keep "$keep_json" '[ .[] | select(.id as $i | $keep | index($i)) ]' <<<"$sps")
+            after_n=$(jq 'length' <<<"$sps")
+            if [[ "$before_n" -ne "$after_n" ]]; then
+                record INFO discovery "Service Principal scoping" \
+                    "$((before_n - after_n)) of $before_n discovered SP(s) have no Azure role on the scoped subscription(s) - excluded. Set FORTICNAPP_APP_ID to force one."
+            fi
+        fi
     fi
 
     local n; n=$(jq 'length' <<<"$sps")
